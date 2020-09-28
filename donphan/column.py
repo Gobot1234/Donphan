@@ -1,9 +1,10 @@
 from .sqltype import SQLType
 
 from json import dumps
-from typing import Any, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
+    from .enum import Enum
     from .table import Table
 
 
@@ -22,7 +23,8 @@ class Column:
     """
 
     def __init__(self, *, index: bool = False, primary_key: bool = False, unique: bool = False, auto_increment: bool = False,
-                 nullable: bool = True, default: Any = NotImplemented, references: 'Column' = None):
+                 nullable: bool = True, default: Any = NotImplemented, references: 'Column' = None,
+                 enum: Optional[Type['Enum']] = None):
         self.index = index
         self.primary_key = primary_key
         self.unique = unique
@@ -30,6 +32,7 @@ class Column:
         self.nullable = nullable
         self.default = default
         self.references = references
+        self.enum = enum
 
     def _update(self, table: 'Table', name: str, sqltype: SQLType, is_array: bool):
         self.table = table

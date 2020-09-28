@@ -1,8 +1,9 @@
-
 import datetime
 import decimal
 import ipaddress
 import uuid
+
+from .enum import Enum
 
 _defaults = {}
 
@@ -135,6 +136,14 @@ class SQLType:
     def Boolean(cls):
         """Postgres Boolean Type"""
         return cls(bool, 'BOOLEAN')
+
+    # 8.7 Enum
+
+    @classmethod
+    @default_for(Enum)
+    def Enum(cls):
+        """Postgres Enum Type"""
+        return cls(Enum, 'ENUM')
 
     # 8.9 Network Adress
 

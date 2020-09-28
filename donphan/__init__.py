@@ -6,6 +6,7 @@ __version__ = '2.4.2'
 
 from .column import Column
 from .connection import create_pool, MaybeAcquire
+from .enum import Enum
 from .table import create_tables, Table
 from .sqltype import SQLType
 from .view import create_views, View

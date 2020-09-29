@@ -1,3 +1,5 @@
+from typing import Optional
+
 from .abc import Fetchable
 from .connection import Connection, MaybeAcquire
 
@@ -5,7 +7,7 @@ from .connection import Connection, MaybeAcquire
 class View(Fetchable):
 
     @classmethod
-    def _query_create(cls, drop_if_exists=True, if_not_exists=True):
+    def _query_create(cls, drop_if_exists: bool = True, if_not_exists: bool = True) -> str:
         builder = ['CREATE']
 
         if drop_if_exists:
@@ -27,11 +29,11 @@ class View(Fetchable):
         return "\n".join(builder)
 
     @classmethod
-    def _query_drop(cls, if_exists=True, cascade=False):
+    def _query_drop(cls, if_exists: bool = True, cascade: bool = False) -> str:
         return cls._base_query_drop('VIEW', if_exists, cascade)
 
 
-async def create_views(connection: Connection = None, drop_if_exists: bool = False):
+async def create_views(connection: Optional[Connection] = None, drop_if_exists: bool = False) -> None:
     """Create all defined views.
 
     Args:

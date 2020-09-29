@@ -1,3 +1,5 @@
+from typing import Optional
+
 from .abc import Insertable
 from .connection import Connection, MaybeAcquire
 
@@ -5,7 +7,7 @@ from .connection import Connection, MaybeAcquire
 class Table(Insertable):
 
     @classmethod
-    def _query_create(cls, drop_if_exists=True, if_not_exists=True):
+    def _query_create(cls, drop_if_exists: bool = True, if_not_exists: bool = True) -> str:
         builder = ['CREATE TABLE']
 
         if if_not_exists:
@@ -27,11 +29,12 @@ class Table(Insertable):
         return ' '.join(builder)
 
     @classmethod
-    def _query_drop(cls, if_exists=True, cascade=False):
+    def _query_drop(cls, if_exists: bool = True, cascade: bool = False) -> str:
         return cls._base_query_drop('TABLE', if_exists, cascade)
 
 
-async def create_tables(connection: Connection = None, drop_if_exists: bool = False, if_not_exists: bool = True):
+async def create_tables(connection: Optional[Connection] = None, drop_if_exists: bool = False,
+                        if_not_exists: bool = True) -> None:
     """Create all defined tables.
 
     Args:

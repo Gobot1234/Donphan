@@ -34,7 +34,7 @@ class Column:
         self.references = references
         self.enum = enum
 
-    def _update(self, table: 'Table', name: str, sqltype: SQLType, is_array: bool):
+    def _update(self, table: 'Table', name: str, sqltype: SQLType, is_array: bool) -> 'Column':
         self.table = table
         self.name = name
         self.type = sqltype
@@ -47,7 +47,7 @@ class Column:
                     raise AttributeError(f'Column {self} does not match types with referenced column; expected: {self.references.type}, received: {self.type}')
 
         if self.auto_increment:
-            if self.type.python == int:
+            if self.type.python is int:
                 self.type = SQLType.Serial()
             else:
                 raise TypeError(f'Column {self} is auto_increment and must have a supporting type; expected: {SQLType.Serial()}, received: {self.type}')

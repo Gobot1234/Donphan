@@ -1,4 +1,5 @@
 import json
+from typing import Any, Optional
 
 import asyncpg
 from asyncpg import pool as asyncpg_pool
@@ -19,19 +20,13 @@ class Record(asyncpg.Record):
 _pool: Pool = None  # type: ignore
 
 
-async def create_pool(dsn: str, **kwargs) -> Pool:
+async def create_pool(dsn: str, **kwargs: Any) -> Pool:
     """Creates the database connection pool."""
     global _pool
 
-    def _encode_json(value):
-        return json.dumps(value)
-
-    def _decode_json(value):
-        return json.loads(value)
-
-    async def init(connection: asyncpg.Connection):
-        await connection.set_type_codec('json', schema='pg_catalog', encoder=_encode_json, decoder=_decode_json, format='text')
-        await connection.set_type_codec('jsonb', schema='pg_catalog', encoder=_encode_json, decoder=_decode_json, format='text')
+    async def init(connection: asyncpg.Connection) -> None:
+        await connection.set_type_codec('json', schema='pg_catalog', encoder=json.dumps, decoder=json.loads, format='text')
+        await connection.set_type_codec('jsonb', schema='pg_catalog', encoder=json.dumps, decoder=json.loads, format='text')
 
     _pool = p = await asyncpg.create_pool(dsn, init=init, **kwargs)
     return p
@@ -48,7 +43,7 @@ class MaybeAcquire:
             If none is supplied the default pool will be used.
     """
 
-    def __init__(self, connection: asyncpg.Connection = None, *, pool=None):
+    def __init__(self, connection: Optional[asyncpg.Connection] = None, *, pool: Optional[Pool] = None):
         self.connection = connection
         self.pool = pool or _pool
         self._cleanup = False

@@ -2,36 +2,41 @@ import datetime
 import decimal
 import ipaddress
 import uuid
+from typing import Callable, Dict, Generic, Type, TypeVar
+from typing_extensions import Literal
 
 from .enum import Enum
 
-_defaults = {}
+PY_T = TypeVar("PY_T", bound=type)
+SQL_T = TypeVar("SQL_T", bound=str)
+SQLTypeClassMethod = Callable[[Type['SQLType']], 'SQLType']
+_defaults: Dict[PY_T, SQLTypeClassMethod] = {}
 
 
-def default_for(python_type):
+def default_for(python_type: PY_T) -> Callable[[SQLTypeClassMethod], SQLTypeClassMethod]:
     """Sets a specified python type's default SQL type.
     Args:
         python_type (type): Python type to set the specified sqltype as default for.
     """
-    def func(sql_type):
+    def func(sql_type: SQLTypeClassMethod) -> SQLTypeClassMethod:
         _defaults[python_type] = sql_type
         return sql_type
     return func
 
 
-class SQLType:
+class SQLType(Generic[PY_T, SQL_T]):
     python = NotImplemented
     sql = NotImplemented
 
-    def __init__(self, python, sql):
+    def __init__(self, python: PY_T, sql: SQL_T):
         self.python = python
         self.sql = sql
 
-    def __repr__(self):
-        return f'<SQLType sql=\'{self.sql}\' python=\'{self.__name__}\'>'
+    def __repr__(self) -> str:
+        return f'<SQLType sql={self.sql!r} python={self.__name__!r}>'
 
     def __eq__(self, other) -> bool:
-        return self.sql == other.sql
+        return isinstance(other, self.__class__) and self.sql == other.sql
 
     @property
     def __name__(self) -> str:
@@ -41,63 +46,63 @@ class SQLType:
 
     @classmethod
     @default_for(int)
-    def Integer(cls):
+    def Integer(cls) -> 'SQLType[int, Literal["INTEGER"]]':
         """Postgres Integer Type"""
         return cls(int, 'INTEGER')
 
     @classmethod
-    def SmallInt(cls):
+    def SmallInt(cls) -> 'SQLType[int, Literal["SMALLINT"]]':
         """Postgres SmallInt Type"""
         return cls(int, 'SMALLINT')
 
     @classmethod
-    def BigInt(cls):
+    def BigInt(cls) -> 'SQLType[int, Literal["BIGINT"]]':
         """Postgres BigInt Type"""
         return cls(int, 'BIGINT')
 
     @classmethod
-    def Serial(cls):
+    def Serial(cls) -> 'SQLType[int, Literal["SERIAL"]]':
         """Postgres Serial Type"""
         return cls(int, 'SERIAL')
 
     @classmethod
     @default_for(float)
-    def Float(cls):
+    def Float(cls) -> 'SQLType[float, Literal["FLOAT"]]':
         """Postgres Float Type"""
         return cls(float, 'FLOAT')
 
     @classmethod
-    def DoublePrecision(cls):
+    def DoublePrecision(cls) -> 'SQLType[float, Literal["DOUBLE PRECISION"]]':
         """Postgres DoublePrecision Type"""
         return cls(float, 'DOUBLE PRECISION')
 
     @classmethod
     @default_for(decimal.Decimal)
-    def Numeric(cls):
+    def Numeric(cls) -> 'SQLType[decimal.Decimal, Literal["NUMERIC"]]':
         """Postgres Numeric Type"""
         return cls(decimal.Decimal, 'NUMERIC')
 
     # 8.2 Monetary
 
     @classmethod
-    def Money(cls):
+    def Money(cls) -> 'SQLType[str, Literal["MONEY"]]':
         """Postgres Money Type"""
         return cls(str, 'MONEY')
 
     # 8.3 Character
 
     @classmethod
-    def CharacterVarying(cls, n: int = 2000):
+    def CharacterVarying(cls, n: int = 2000) -> 'SQLType[str, str]':
         return cls(str, f'CHARACTER VARYING({n})')
 
     @classmethod
-    def Character(cls):
+    def Character(cls) -> 'SQLType[str, Literal["CHARACTER"]]':
         """Postgres Character Type"""
         return cls(str, 'CHARACTER')
 
     @classmethod
     @default_for(str)
-    def Text(cls):
+    def Text(cls) -> 'SQLType[str, Literal["TEXT"]]':
         """Postgres Text Type"""
         return cls(str, 'TEXT')
 
@@ -105,7 +110,7 @@ class SQLType:
 
     @classmethod
     @default_for(bytes)
-    def Bytea(cls):
+    def Bytea(cls) -> 'SQLType[bytes, Literal["BYTEA"]]':
         """Postgres Bytea Type"""
         return cls(bytes, 'BYTEA')
 
@@ -113,19 +118,19 @@ class SQLType:
 
     @classmethod
     @default_for(datetime.datetime)
-    def Timestamp(cls):
+    def Timestamp(cls) -> 'SQLType[datetime.datetime, Literal["TIMESTAMP"]]':
         """Postgres Timestamp Type"""
         return cls(datetime.datetime, 'TIMESTAMP')
 
     @classmethod
     @default_for(datetime.date)
-    def Date(cls):
+    def Date(cls) -> 'SQLType[datetime.date, Literal["DATE"]]':
         """Postgres Date Type"""
         return cls(datetime.date, 'DATE')
 
     @classmethod
     @default_for(datetime.timedelta)
-    def Interval(cls):
+    def Interval(cls) -> 'SQLType[datetime.timedelta, Literal["INTERVAL"]]':
         """Postgres Interval Type"""
         return cls(datetime.timedelta, 'INTERVAL')
 
@@ -133,7 +138,7 @@ class SQLType:
 
     @classmethod
     @default_for(bool)
-    def Boolean(cls):
+    def Boolean(cls) -> 'SQLType[bool, Literal["BOOLEAN"]]':
         """Postgres Boolean Type"""
         return cls(bool, 'BOOLEAN')
 
@@ -141,7 +146,7 @@ class SQLType:
 
     @classmethod
     @default_for(Enum)
-    def Enum(cls):
+    def Enum(cls) -> 'SQLType[Enum, Literal["ENUM"]]':
         """Postgres Enum Type"""
         return cls(Enum, 'ENUM')
 
@@ -150,19 +155,19 @@ class SQLType:
     @classmethod
     @default_for(ipaddress.IPv4Network)
     @default_for(ipaddress.IPv6Network)
-    def CIDR(cls):
+    def CIDR(cls) -> 'SQLType[ipaddress._BaseNetwork, Literal["CIDR"]]':
         """Postgres CIDR Type"""
         return cls(ipaddress._BaseNetwork, 'CIDR')
 
     @classmethod
     @default_for(ipaddress.IPv4Address)
     @default_for(ipaddress.IPv6Address)
-    def Inet(cls):
+    def Inet(cls) -> 'SQLType[CIDR, Literal["INET"]]':
         """Postgres Inet Type"""
         return cls(ipaddress._BaseNetwork, 'INET')
 
     @classmethod
-    def MACAddr(cls):
+    def MACAddr(cls) -> 'SQLType[str, Literal["MACADDR"]]':
         """Postgres MACAddr Type"""
         return cls(str, 'MACADDR')
 
@@ -170,20 +175,20 @@ class SQLType:
 
     @classmethod
     @default_for(uuid.UUID)
-    def UUID(cls):
+    def UUID(cls) -> 'SQLType[uuid.UUID, Literal["UUID"]]':
         """Postgres UUID Type"""
         return cls(uuid.UUID, 'UUID')
 
     # 8.14 JSON
 
     @classmethod
-    def JSON(cls):
+    def JSON(cls) -> 'SQLType[dict, Literal["JSON"]]':
         """Postgres JSON Type"""
         return cls(dict, 'JSON')
 
     @classmethod
     @default_for(dict)
-    def JSONB(cls):
+    def JSONB(cls) -> 'SQLType[dict, Literal["JSONB"]]':
         """Postgres JSONB Type"""
         return cls(dict, 'JSONB')
 
@@ -192,14 +197,14 @@ class SQLType:
     VarChar = CharacterVarying
 
     @classmethod
-    def _from_python_type(cls, python_type: type):
+    def _from_python_type(cls, python_type: PY_T) -> SQL_T:
         """Dynamically determines an SQL type given a python type.
         Args:
             python_type (type): The python type.
         """
 
-        if _defaults.get(python_type):
+        try:
             return _defaults[python_type](cls)
-
-        raise TypeError(
-            f'Could not find an applicable SQL type for Python type {python_type.__name__}.')
+        except KeyError:
+            raise TypeError(
+                f'Could not find an applicable SQL type for Python type {python_type.__name__}.') from None

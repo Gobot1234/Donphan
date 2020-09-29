@@ -5,7 +5,7 @@ from .sqltype import SQLType
 import abc
 import inspect
 
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 
 _DEFAULT_SCHEMA = 'public'
@@ -62,7 +62,8 @@ class Creatable(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @classmethod
-    async def create(cls, *, connection=None, drop_if_exists=True, if_not_exists=True):
+    async def create(cls, *, connection: Optional[Connection] = None, drop_if_exists: bool = True,
+                     if_not_exists: bool = True) -> None:
         """Creates this object in the database.
 
         Args:
@@ -78,7 +79,8 @@ class Creatable(metaclass=abc.ABCMeta):
             await connection.execute(cls._query_create(drop_if_exists, if_not_exists))
 
     @classmethod
-    async def drop(cls, *, connection=None, if_exists: bool = False, cascade: bool = False):
+    async def drop(cls, *, connection: Optional[Connection] = None, if_exists: bool = False,
+                   cascade: bool = False) -> None:
         """Drops this object from the database.
 
         Args:
@@ -93,14 +95,14 @@ class Creatable(metaclass=abc.ABCMeta):
 
 class ObjectMeta(abc.ABCMeta):
 
-    def __new__(cls, name, bases, attrs, **kwargs):
+    def __new__(mcs, name: str, bases: Tuple[type, ...], attrs: Dict[str, Any], **kwargs: Any) -> "ObjectMeta":
 
         attrs.update({
             'schema': kwargs.get('schema', _DEFAULT_SCHEMA),
             '_columns': {}
         })
 
-        obj = super().__new__(cls, name, bases, attrs)
+        obj = super().__new__(mcs, name, bases, attrs)
 
         for _name, _type in attrs.get('__annotations__', {}).items():
 
@@ -121,7 +123,7 @@ class ObjectMeta(abc.ABCMeta):
 
         return obj
 
-    def __getattr__(cls, key):
+    def __getattr__(cls, key: str) -> Any:
         if key == '__name__':
             return f'{cls.__name__.lower()}'
 
@@ -137,7 +139,7 @@ class ObjectMeta(abc.ABCMeta):
 class Fetchable(Creatable, metaclass=ObjectMeta):
 
     @classmethod
-    def _validate_kwargs(cls, primary_keys_only=False, **kwargs) -> List[Tuple[str, Any]]:
+    def _validate_kwargs(cls, primary_keys_only: bool = False, **kwargs: Any) -> List[Tuple[str, Any]]:
         """Validates passed kwargs against table"""
         verified = list()
         for kwarg, value in kwargs.items():
@@ -163,13 +165,13 @@ class Fetchable(Creatable, metaclass=ObjectMeta):
                 raise TypeError(
                     f'Cannot pass None into non-nullable column {column.name}')
 
-            def check_type(element):
+            def check_type(element: Any) -> bool:
                 return isinstance(element, (column.type.python, type(None)))
 
             # If column is an array
             if column.is_array:
 
-                def check_array(element):
+                def check_array(element: Any) -> None:
 
                     # If not at the deepest level check elements in array
                     if isinstance(element, (List, Tuple)):
@@ -195,7 +197,7 @@ class Fetchable(Creatable, metaclass=ObjectMeta):
         return verified
 
     @classmethod
-    def _query_fetch(cls, order_by: Optional[str], limit: Optional[int], **kwargs) -> Tuple[str, Iterable]:
+    def _query_fetch(cls, order_by: Optional[str], limit: Optional[int], **kwargs: Any) -> Tuple[str, Iterable]:
         """Generates a SELECT FROM stub"""
         verified = cls._validate_kwargs(**kwargs)
 
@@ -341,7 +343,7 @@ class Fetchable(Creatable, metaclass=ObjectMeta):
 class Insertable(Fetchable, metaclass=ObjectMeta):
 
     @classmethod
-    def _query_insert(cls, returning: Optional[Union[str, Iterable[Column]]], **kwargs) -> Tuple[str, Iterable]:
+    def _query_insert(cls, returning: Optional[Union[str, Iterable[Column]]], **kwargs: Any) -> Tuple[str, Iterable]:
         """Generates the INSERT INTO stub."""
         verified = cls._validate_kwargs(**kwargs)
 
@@ -376,7 +378,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
 
                 builder.append(', '.join(returning_builder))
 
-        return (" ".join(builder), (value for (_, value) in verified))
+        return " ".join(builder), (value for (_, value) in verified)
 
     @classmethod
     def _query_insert_many(cls, columns) -> str:
@@ -390,8 +392,8 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
         return " ".join(builder)
 
     @classmethod
-    def _query_update_record(cls, record, **kwargs) -> Tuple[str, List[Any]]:
-        '''Generates the UPDATE stub'''
+    def _query_update_record(cls, record: Record, **kwargs: Any) -> Tuple[str, List[Any]]:
+        """Generates the UPDATE stub"""
         verified = cls._validate_kwargs(**kwargs)
 
         builder = [f'UPDATE {cls._name} SET']
@@ -411,11 +413,11 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
             checks.append(f'{key} = ${i}')
         builder.append(' AND '.join(checks))
 
-        return (" ".join(builder), list((value for (_, value) in verified)) + list((value for (_, value) in record_keys)))
+        return " ".join(builder), list((value for (_, value) in verified)) + list((value for (_, value) in record_keys))
 
     @classmethod
-    def _query_update_where(cls, query, values, **kwargs) -> Tuple[str, List[Any]]:
-        '''Generates the UPDATE stub'''
+    def _query_update_where(cls, query: str, values: Any, **kwargs: Any) -> Tuple[str, List[Any]]:
+        """Generates the UPDATE stub"""
         verified = cls._validate_kwargs(**kwargs)
 
         builder = [f'UPDATE {cls._name} SET']
@@ -430,11 +432,11 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
         builder.append('WHERE')
         builder.append(query)
 
-        return (" ".join(builder), values + tuple(value for (_, value) in verified))
+        return " ".join(builder), values + tuple(value for (_, value) in verified)
 
     @classmethod
-    def _query_delete(cls, **kwargs) -> Tuple[str, List[Any]]:
-        '''Generates the DELETE stub'''
+    def _query_delete(cls, **kwargs: Any) -> Tuple[str, List[Any]]:
+        """Generates the DELETE stub"""
         verified = cls._validate_kwargs(**kwargs)
 
         # AND / OR statement check
@@ -470,8 +472,8 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
         return (" ".join(builder), list(value for (_, value) in verified))
 
     @classmethod
-    def _query_delete_record(cls, record) -> Tuple[str, List[Any]]:
-        '''Generates the DELETE stub'''
+    def _query_delete_record(cls, record: Record) -> Tuple[str, List[Any]]:
+        """Generates the DELETE stub"""
 
         builder = [f'DELETE FROM {cls._name}']
 
@@ -487,8 +489,8 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
         return (" ".join(builder), list(value for (_, value) in record_keys))
 
     @classmethod
-    def _query_delete_where(cls, query) -> str:
-        '''Generates the UPDATE stub'''
+    def _query_delete_where(cls, query: str) -> str:
+        """Generates the UPDATE stub"""
 
         builder = [f'DELETE FROM {cls._name}']
 
@@ -499,7 +501,8 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
         return " ".join(builder)
 
     @classmethod
-    async def insert(cls, *, connection: Connection = None, returning: Iterable[Column] = None, **kwargs) -> Optional[Record]:
+    async def insert(cls, *, connection: Optional[Connection] = None, returning: Iterable[Column] = None,
+                     **kwargs: Any) -> Optional[Record]:
         """Inserts a new record into the database.
 
         Args:
@@ -518,7 +521,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
         return None
 
     @classmethod
-    async def insert_many(cls, columns: Iterable[Column], *values: Iterable[Iterable[Any]], connection: Connection = None):
+    async def insert_many(cls, columns: Iterable[Column], *values: Iterable[Any], connection: Optional[Connection] = None) -> None:
         """Inserts multiple records into the database.
         Args:
             columns (list(Column)): The list of columns to insert based on.
@@ -532,7 +535,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
             await connection.executemany(query, values)
 
     @classmethod
-    async def update_record(cls, record: Record, *, connection: Connection = None, **kwargs):
+    async def update_record(cls, record: Record, *, connection: Optional[Connection] = None, **kwargs: Any) -> None:
         """Updates a record in the database.
 
         Args:
@@ -546,7 +549,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
             await connection.execute(query, *values)
 
     @classmethod
-    async def update_where(cls, where: str, *values: Any, connection: Connection = None, **kwargs):
+    async def update_where(cls, where: str, *values: Any, connection: Optional[Connection] = None, **kwargs: Any) -> None:
         """Updates any record in the database which satisfies the query.
 
         Args:
@@ -562,7 +565,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
             await connection.execute(query, *values)
 
     @classmethod
-    async def delete(cls, *, connection: Connection = None, **kwargs):
+    async def delete(cls, *, connection: Optional[Connection] = None, **kwargs: Any):
         """Deletes any records in the database which satisfy the supplied kwargs.
 
         Args:
@@ -575,7 +578,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
             await connection.execute(query, *values)
 
     @classmethod
-    async def delete_record(cls, record: Record, *, connection: Connection = None):
+    async def delete_record(cls, record: Record, *, connection: Optional[Connection] = None) -> None:
         """Deletes a record in the database.
 
         Args:
@@ -588,7 +591,7 @@ class Insertable(Fetchable, metaclass=ObjectMeta):
             await connection.execute(query, *values)
 
     @classmethod
-    async def delete_where(cls, where: str, *values: Optional[Tuple[Any]], connection: Connection = None):
+    async def delete_where(cls, where: str, *values: Optional[Any], connection: Optional[Connection] = None) -> None:
         """Deletes any record in the database which satisfies the query.
 
         Args:
